@@ -1,17 +1,90 @@
 {% extends 'base.html' %}
 
+{% block title %} Acidentes {% endblock %} 
+
+{% block header %}
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <div class="row justify-content-md-center">
         <div class="col">
-        <label>
-            Data inicial <input>
-        </label>
-        <label>
-            Data final <input>
-        </label>
-            
+            <h1>Utilize os filtros para gerar visualizações</h1>
         </div>
     </div>
+    <div class="row justify-content-md-center">
+        <div class="row">
+            <form id="form">
+                <div class="row">
+
+                    <div class="col">
+                        <label class="form-label" for="start_month">Mês inicial</label>
+                        <input type="month" class="form-control" name="start_month" id="start_month" required>
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="end_month">Mês final</label>
+                        <input type="month" class="form-control" name="end_month" id="end_month" required>
+                    </div>
+                    <div class="col">
+                        <label class="form-label" >&ThinSpace;</label>
+                        <input 
+                            class="btn btn-outline-secondary form-control" 
+                            type="submit" 
+                            id="submit_btn"
+                            value="Atualizar"
+                            >
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row justify-content-md-center">
+        <div class="col" id="plot_container">
+
+        </div>
+    </div>
+
 </div>
+{% endblock %}
+
+{% block code %}
+<script>
+    $(document).ready(function () {
+
+        $("#form").submit(function(event){
+
+            event.preventDefault();
+
+            $.ajax({
+                url: "{{url_for('main_app.att_viz')}}", 
+                data: $("#form").serialize(), 
+                type: "POST", 
+                dataType: 'json',
+                success: function (content, status, nonsense) {
+
+                    for (i = 0; i < content.plots.length; i++){
+                        $("#plot_container").append(`<div id="plot_${i}" class="row justify-content-md-center"> </div>`)
+                        $(`#plot_${i}`).html(content.plots[i])
+                        $(`#plot_${i}`).children().addClass('col')
+                    }
+                    // $(".plotly-graph-div").addClass("justify-content-md-center")
+                    // $(".plotly-graph-div").css("width", "100%")
+                    // $(".svg-container").css("width", "100%")
+                    // $("svg").css("display","block")
+                    // $("svg").css("margin","auto")
+                    // // $("svg").attr("height", "100%")
+                    // $("svg").attr("width", "100%")
+                    // // $("svg").attr("viewBox", "0 0 100 100")
+                    
+                },
+                error:function(e){
+                    alert(e.responseText);
+                }
+            }); 
+            return false;
+        });
+    });
+</script>
 {% endblock %}
