@@ -5,10 +5,10 @@ OKGREEN = '\033[92m'
 ENDC = '\033[0m'
 
 def print_error(msg):
-    print(f"{FAIL}{msg}{ENDC}")
+    print(f"\t{FAIL}{msg}{ENDC}")
 
 def print_success(msg):
-    print(f"{OKGREEN}{msg}{ENDC}")
+    print(f"\t{OKGREEN}{msg}{ENDC}")
 
 def test_get_acidentes():
     df_acidentes = None
@@ -27,5 +27,7 @@ def test_get_vendas():
         print_error(f"erro ao adquirir o dataset de acidentes: {e}")
 
 if __name__ == "__main__":
+    print("\n\n\nIniciando testes")
     test_get_acidentes()
     test_get_vendas()
+    print("Fim dos testes\n\n\n\n")

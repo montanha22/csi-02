@@ -29,5 +29,6 @@ def create_app(test_config=None):
 
     from . import main_app
     app.register_blueprint(main_app.main_page_bp)
+    app.register_blueprint(main_app.api_bp)
 
     return app

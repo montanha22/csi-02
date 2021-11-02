@@ -1,36 +1,32 @@
+import io
+from typing import Any, Dict, Tuple
+from flask.helpers import send_file
+
+from werkzeug.datastructures import ImmutableDict
 from csi_project.plots import (
-    get_df_acidentes,
-    get_df_vendas,
     plot_acidentes_per_month,
     plot_acidentes_versus_vendas,
     plot_acidentes_with_filters,
     plot_vendas_per_month,
 )
+from csi_project.requests import (
+    get_df_acidentes,
+    get_df_vendas,
+)
 from flask import (
     Blueprint,
-    flash,
-    g,
-    redirect,
     render_template,
     request,
-    session,
-    url_for,
     Response,
 )
 import re
 from flask_api import status
-from datetime import date, timedelta
-import requests
+from datetime import date
 import plotly
 
 
-# Other
-
-import requests
-from unidecode import unidecode
-
-
 main_page_bp = Blueprint("main_app", __name__, url_prefix="/")
+api_bp = Blueprint("api", __name__, url_prefix="/api/v1/")
 
 
 @main_page_bp.route("/")
@@ -43,39 +39,60 @@ def viz():
     return render_template("visualization_page.html")
 
 
-@main_page_bp.route("/att-viz", methods=["POST"])
-def att_viz():
+def validate_form_dates(form: Dict[str, str]) -> Tuple[bool, Any]:
+    """
+    Validates the form dates.
+    :param form: The form with the date fields.
+    :return: (ok, error_message)
+    """
     needed_form_fields = {"start_month", "end_month"}
 
-    if not set(request.form.keys()).issuperset(needed_form_fields):
-        return Response(
+    if not set(form.keys()).issuperset(needed_form_fields):
+        return (
+            False,
             f"Não contém todos os campos necessários: {needed_form_fields}",
-            status.HTTP_400_BAD_REQUEST,
         )
 
-    start_year_month = request.form.get("start_month")
-    end_year_month = request.form.get("end_month")
+    start_year_month = form.get("start_month")
+    end_year_month = form.get("end_month")
 
     if not valid_year_month_format(start_year_month) or not valid_year_month_format(
         end_year_month
     ):
-        return Response("Formatos de data inválidos", status.HTTP_400_BAD_REQUEST)
+        return False, "Formatos de data inválidos"
 
     start_year, start_month = map(int, start_year_month.split("-"))
     end_year, end_month = map(int, end_year_month.split("-"))
 
     if (end_year, end_month) < (start_year, start_month):
-        return Response(
+        return (
+            False,
             "A data final deve ser maior que a data inicial",
-            status.HTTP_400_BAD_REQUEST,
         )
 
     today_year, today_month = date.today().year, date.today().month
     if (end_year, end_month) > (today_year, today_month):
-        return Response(
-            "A data final deve ser anterior a data de hoje.",
-            status.HTTP_400_BAD_REQUEST,
-        )
+        return False, "A data final deve ser anterior a data de hoje."
+
+    return True, None
+
+
+def get_dates_from_form(form: Dict[str, str]) -> Tuple[date, date]:
+    start_year_month = form.get("start_month")
+    end_year_month = form.get("end_month")
+    start_year, start_month = map(int, start_year_month.split("-"))
+    end_year, end_month = map(int, end_year_month.split("-"))
+    return start_year, start_month, end_year, end_month
+
+
+@main_page_bp.route("/att-viz", methods=["POST"])
+def att_viz():
+
+    ok, err = validate_form_dates(request.form)
+    if not ok:
+        return Response(err, status.HTTP_400_BAD_REQUEST)
+
+    start_year, start_month, end_year, end_month = get_dates_from_form(request.form)
 
     try:
         df_acidentes = get_df_acidentes(start_year, start_month, end_year, end_month)
@@ -85,8 +102,14 @@ def att_viz():
             status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
-    df_vendas = get_df_vendas(start_year, start_month, end_year, end_month)
-
+    try:
+        df_vendas = get_df_vendas(start_year, start_month, end_year, end_month)
+    except Exception as e:
+        return Response(
+            f"""Erro ao conectar com servidor de dados de vendas.""",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    
     vendas_per_month_fig = plot_vendas_per_month(df_vendas)
     acidentes_fatais_fig = plot_acidentes_with_filters(
         df_acidentes, [-1, 1, -1, -1], title="Acidentes fatais por mês"
@@ -105,5 +128,105 @@ def att_viz():
     )
 
 
+@api_bp.route("/acidentes", methods=["GET"])
+def get_accidents():
+    ok, err = validate_form_dates(request.form)
+    if not ok:
+        return Response(err, status.HTTP_400_BAD_REQUEST)
+    start_year, start_month, end_year, end_month = get_dates_from_form(request.form)
+    df_acidentes = get_df_acidentes(start_year, start_month, end_year, end_month)
+
+    return df_acidentes.to_json(orient="records")
+
+@api_bp.route("/vendas", methods=["GET"])
+def get_sales():
+    ok, err = validate_form_dates(request.form)
+    if not ok:
+        return Response(err, status.HTTP_400_BAD_REQUEST)
+    start_year, start_month, end_year, end_month = get_dates_from_form(request.form)
+    df_vendas = get_df_vendas(start_year, start_month, end_year, end_month)
+
+    return df_vendas.to_json(orient="records")
+
+@api_bp.route("/grafico-vendas-por-mes", methods = ["GET"])
+def get_sales_per_month():
+    ok, err = validate_form_dates(request.form)
+    if not ok:
+        return Response(err, status.HTTP_400_BAD_REQUEST)
+
+    start_year, start_month, end_year, end_month = get_dates_from_form(request.form)
+    df_vendas = get_df_vendas(start_year, start_month, end_year, end_month)
+    vendas_per_month_fig = plot_vendas_per_month(df_vendas)
+
+    image_binary = vendas_per_month_fig.to_image(format="jpeg")
+
+    return send_file(
+                io.BytesIO(image_binary),
+                mimetype='image/jpeg',
+                as_attachment=True,
+                attachment_filename='vendas-por-mes.jpg')
+
+@api_bp.route("/grafico-acidentes-fatais-por-mes", methods = ["GET"])
+def get_fatal_accidents_per_month():
+    ok, err = validate_form_dates(request.form)
+    if not ok:
+        return Response(err, status.HTTP_400_BAD_REQUEST)
+
+    start_year, start_month, end_year, end_month = get_dates_from_form(request.form)
+    df_acidentes = get_df_acidentes(start_year, start_month, end_year, end_month)
+    acidentes_fatais_fig = plot_acidentes_with_filters(
+        df_acidentes, [-1, 1, -1, -1], title="Acidentes fatais por mês"
+    )
+
+    image_binary = acidentes_fatais_fig.to_image(format="jpeg")
+
+    return send_file(
+                io.BytesIO(image_binary),
+                mimetype='image/jpeg',
+                as_attachment=True,
+                attachment_filename='acidentes-fatais-por-mes.jpg')
+
+@api_bp.route("/grafico-acidentes-por-mes", methods = ["GET"])
+def get_accidents_per_month():
+    ok, err = validate_form_dates(request.form)
+    if not ok:
+        return Response(err, status.HTTP_400_BAD_REQUEST)
+
+    start_year, start_month, end_year, end_month = get_dates_from_form(request.form)
+    df_acidentes = get_df_acidentes(start_year, start_month, end_year, end_month)
+    acidentes_per_month = plot_acidentes_per_month(df_acidentes, True)
+
+    image_binary = acidentes_per_month.to_image(format="jpeg")
+
+    return send_file(
+                io.BytesIO(image_binary),
+                mimetype='image/jpeg',
+                as_attachment=True,
+                attachment_filename='acidentes-por-mes.jpg')
+
+@api_bp.route("/grafico-acidentes-versus-vendas", methods = ["GET"])
+def get_accidents_versus_sales():
+    ok, err = validate_form_dates(request.form)
+    if not ok:
+        return Response(err, status.HTTP_400_BAD_REQUEST)
+
+    start_year, start_month, end_year, end_month = get_dates_from_form(request.form)
+    df_acidentes = get_df_acidentes(start_year, start_month, end_year, end_month)
+    df_vendas = get_df_vendas(start_year, start_month, end_year, end_month)
+    acid_vendas_fig = plot_acidentes_versus_vendas(df_acidentes, df_vendas)
+
+    image_binary = acid_vendas_fig.to_image(format="jpeg")
+
+    return send_file(
+                io.BytesIO(image_binary),
+                mimetype='image/jpeg',
+                as_attachment=True,
+                attachment_filename='acidentes-versus-vendas.jpg')
+
+
 def valid_year_month_format(year_month):
-    return bool(re.match(r"\d\d\d\d\-\d\d", year_month))
+    match = bool(re.match(r"\d\d\d\d\-\d\d", year_month))
+    if not match:
+        return False
+    _, month = map(int, year_month.split("-"))
+    return 0 <= month <= 12
