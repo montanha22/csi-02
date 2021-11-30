@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %} Docs {% endblock %} 
+
+{% block header %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism.min.css" integrity="sha512-tN7Ec6zAFaVSG3TpNAKtk4DOHNpSwKHxxrsiw4GHKESGPs5njn/0sMCUMl2svV4wo4BK/rCP7juYz+zx+l6oeQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+    /* Rounded border */
+    hr.rounded {
+    border-top: 8px solid #bbb;
+    border-radius: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js" integrity="sha512-hpZ5pDCF2bRCweL5WoA0/N1elet1KYL5mx3LP555Eg/0ZguaHawxNvEjF6O3rufAChs16HVNhEc6blF/rZoowQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-python.min.js" integrity="sha512-yIpe1UXrH/ZWwu3n7MdHNfMbPXftP0jlg9+lRhzlpbolElt33h3PGx9ICzqf/k+yca3QNzqcO3sdtKJuYRTi4g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/components/prism-json.min.js" integrity="sha512-NFh0rog24tZqD7+bvhZ15l9r10u/yir42sQ1EuUEWpw2Pyh1KrGUKKXI1TWSAX7RxaohbPn0u1fTb6+YU4u3zA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<div class="container">
+
+
+<h1>Documentação da API</h1>
+<p>Esta é a documentação da API do projeto. A URL da API é <code>https://csi-project-1bim.herokuapp.com/api/v1</code></p>
+
+
+<h2>Dado bruto</h2>
+<p>O cliente pode requisitar os dados utilizados para a montagem dos gráficos. Estes serão retornados em formato JSON.</p>
+
+<h3>Acidentes</h3>
+<h6>Requisição - exemplo em Python</h6>
+<pre><code class="language-python">
+import requests
+response  = requests.get("https://csi-project-1bim.herokuapp.com/api/v1/acidentes",
+                            data=dict(start_month="2019-01", end_month="2019-02"))
+</code></pre>
+<p>O retorno é uma lista de dicionários. Cada dicionário representa um acidente. exemplo:</p>
+<pre><code class="language-json">[{   
+    'dia': 1,
+    'mes': 1,
+    'ano': 2019,
+    'tipo_acid': 'abalroamento',
+    'feridos': 1,
+    'fatais': 0,
+    'caminhao': 0,
+    'moto': 0,
+    'latitude': 1295680342.0,
+    'longitude': -817840587.0
+}]</code></pre>
+
+<h3>Vendas</h3>
+<h6>Requisição - exemplo em Python</h6>
+<pre><code class="language-python">
+import requests
+response  = requests.get("https://csi-project-1bim.herokuapp.com/api/v1/vendas",
+                            data=dict(start_month="2019-01", end_month="2019-02"))
+</code></pre>
+<p>O retorno é uma lista de dicionários. Cada dicionário representa as vendas de um mês. exemplo:</p>
+<pre><code class="language-json">
+[
+    {'mes': 1, 'ano': 2019, 'vendas': 163779},
+    {'mes': 2, 'ano': 2019, 'vendas': 162508}
+]</code></pre>
+
+<hr class="rounded">
+
+<h2>Gráficos</h2>
+<p>Nesse tipo de requisição o cliente recebe o gráfico já desenhado. O conteúdo da responsta são bytes de uma imagem de tipo <code>image/jpeg</code></p>
+
+<h3>Vendas</h3>
+<h6>Requisição - exemplo em Python</h6>
+<pre><code class="language-python">
+import requests
+response  = requests.get("https://csi-project-1bim.herokuapp.com/api/v1/grafico-vendas-por-mes",
+                         data=dict(start_month="2019-01", end_month="2019-02"))
+</code></pre>
+<p>O retorno é uma imagem de tipo <code>image/jpeg</code>. Pode-se recuperar a imagem com o código:</p>
+<pre><code class="language-python">
+from PIL import Image
+import io
+image = Image.open(io.BytesIO(response.content))
+image.show()
+</code></pre>
+
+<h3>Acidentes fatais</h3>
+<h6>Requisição - exemplo em Python</h6>
+<pre><code class="language-python">
+import requests
+response  = requests.get("https://csi-project-1bim.herokuapp.com/api/v1/grafico-acidentes-fatais-por-mes",
+                         data=dict(start_month="2019-01", end_month="2019-02"))
+</code></pre>
+<p>O retorno é uma imagem de tipo <code>image/jpeg</code>.</p>
+
+<h3>Acidentes por mês</h3>
+<h6>Requisição - exemplo em Python</h6>
+<pre><code class="language-python">
+import requests
+response  = requests.get("https://csi-project-1bim.herokuapp.com/api/v1/grafico-acidentes-por-mes",
+                         data=dict(start_month="2019-01", end_month="2019-02"))
+</code></pre>
+<p>O retorno é uma imagem de tipo <code>image/jpeg</code>.</p>
+
+
+<h3>Acidentes vs vendas</h3>
+<h6>Requisição - exemplo em Python</h6>
+<pre><code class="language-python">
+import requests
+response  = requests.get("https://csi-project-1bim.herokuapp.com/api/v1/grafico-acidentes-versus-vendas",
+                         data=dict(start_month="2019-01", end_month="2019-02"))
+</code></pre>
+<p>O retorno é uma imagem de tipo <code>image/jpeg</code>.</p>
+
+</div>
+{% endblock %}
+
+{% block code %}
+{% endblock %}

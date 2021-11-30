@@ -223,6 +223,9 @@ def get_accidents_versus_sales():
                 as_attachment=True,
                 attachment_filename='acidentes-versus-vendas.jpg')
 
+@api_bp.route("/docs", methods = ["GET"])
+def get_docs():
+    return render_template("docs.html")
 
 def valid_year_month_format(year_month):
     match = bool(re.match(r"\d\d\d\d\-\d\d", year_month))
